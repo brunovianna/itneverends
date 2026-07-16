@@ -31,8 +31,8 @@ print("⚙️ Initializing Kokoro-82M Pipeline...")
 tts_pipeline = KPipeline(lang_code='a', device=DEVICE)
 
 # Select premium Kokoro-82M built-in voice models
-SPEAKER_CAPITALIST = "am_adam" 
-SPEAKER_ACTIVIST = "af_bella"   
+SPEAKER_CAPITALIST = "am_fenrir" 
+SPEAKER_ACTIVIST = "af_heart"   
 
 # Initialize API Client and Pygame
 llm_client = OpenAI(base_url=f"{LLAMA_CPP_BASE_URL}/v1", api_key="llama-cpp")
@@ -75,6 +75,7 @@ def unload_llama_cpp_model():
 
 def generate_audio_buffer(text, speaker_name):
     """Generates audio arrays from Kokoro generator chunks and compiles a WAV stream buffer."""
+    start_time = time.time()
     generator = tts_pipeline(text, voice=speaker_name, speed=1.0)
     all_audio_chunks = []
     
@@ -89,6 +90,8 @@ def generate_audio_buffer(text, speaker_name):
     # Kokoro outputs at 24000Hz sampling rate
     sf.write(buffer, combined_audio, 24000, format='WAV')
     buffer.seek(0)
+    duration = time.time() - start_time
+    print(f"⏱️ Audio generation took {duration:.2f} seconds")
     return buffer
 
 
@@ -104,9 +107,10 @@ def generation_worker():
     try:
         # LLM Call
         print("Asking for first LLM generation... " + str(time.time()))
+        start_llm = time.time()
         response = llm_client.chat.completions.create(model=LLM_MODEL_ID, messages=history_capitalist, temperature=0.7)
         text = response.choices[0].message.content.strip()
-        print("First LLM generation done. " + str(time.time()))
+        print(f"First LLM generation done. Took {time.time() - start_llm:.2f} seconds")
         
         # TTS Call
         print("Audio generation... " + str(time.time()))
@@ -135,9 +139,10 @@ def generation_worker():
             if current_turn == "activist":
                 # 1. LLM text generation
                 print("Asking for LLM generation... " + str(time.time()))
+                start_llm = time.time()
                 response = llm_client.chat.completions.create(model=LLM_MODEL_ID, messages=history_activist, temperature=0.7)
                 text = response.choices[0].message.content.strip()
-                print("LLM generation done. " + str(time.time()))
+                print(f"LLM generation done. Took {time.time() - start_llm:.2f} seconds")
 
                 # 2. Convert to Speech
                 print("Audio generation... " + str(time.time()))
@@ -155,9 +160,10 @@ def generation_worker():
             else:
                 # Capitalist's Turn
                 print("Asking for LLM generation... " + str(time.time()))
+                start_llm = time.time()
                 response = llm_client.chat.completions.create(model=LLM_MODEL_ID, messages=history_capitalist, temperature=0.7)
                 text = response.choices[0].message.content.strip()
-                print("LLM generation done. " + str(time.time()))
+                print(f"LLM generation done. Took {time.time() - start_llm:.2f} seconds")
 
                 print("Audio generation... " + str(time.time()))
                 buffer = generate_audio_buffer(text, SPEAKER_CAPITALIST)
