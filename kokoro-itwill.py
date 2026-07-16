@@ -106,16 +106,13 @@ def generation_worker():
     print("⏳ [Pipeline] Generating opening statement in background...")
     try:
         # LLM Call
-        print("Asking for first LLM generation... " + str(time.time()))
         start_llm = time.time()
         response = llm_client.chat.completions.create(model=LLM_MODEL_ID, messages=history_capitalist, temperature=0.7)
         text = response.choices[0].message.content.strip()
         print(f"First LLM generation done. Took {time.time() - start_llm:.2f} seconds")
         
         # TTS Call
-        print("Audio generation... " + str(time.time()))
         buffer = generate_audio_buffer(text, SPEAKER_CAPITALIST)
-        print("Audio done... " + str(time.time()))
         
         # Update histories
         history_capitalist.append({"role": "assistant", "content": text})
@@ -130,24 +127,19 @@ def generation_worker():
     # Continuous generation loop
     while True:
         try:
-            # Manage Context sliding window
-            if len(history_activist) > 7:
-                history_activist = [history_activist[0]] + history_activist[-6:]
-            if len(history_capitalist) > 7:
-                history_capitalist = [history_capitalist[0]] + history_capitalist[-6:]
-
             if current_turn == "activist":
+                # Manage Context sliding window: keep system prompt + last 5 messages (must start/end with user)
+                if len(history_activist) > 7:
+                    history_activist = [history_activist[0]] + history_activist[-5:]
+
                 # 1. LLM text generation
-                print("Asking for LLM generation... " + str(time.time()))
                 start_llm = time.time()
                 response = llm_client.chat.completions.create(model=LLM_MODEL_ID, messages=history_activist, temperature=0.7)
                 text = response.choices[0].message.content.strip()
                 print(f"LLM generation done. Took {time.time() - start_llm:.2f} seconds")
 
                 # 2. Convert to Speech
-                print("Audio generation... " + str(time.time()))
                 buffer = generate_audio_buffer(text, SPEAKER_ACTIVIST)
-                print("Audio done... " + str(time.time()))
                 
                 # 3. Sync dialogue loop history
                 history_activist.append({"role": "assistant", "content": text})
@@ -159,15 +151,15 @@ def generation_worker():
                 
             else:
                 # Capitalist's Turn
-                print("Asking for LLM generation... " + str(time.time()))
+                # Manage Context sliding window: keep system prompt + last 5 messages (must start/end with user)
+                if len(history_capitalist) > 7:
+                    history_capitalist = [history_capitalist[0]] + history_capitalist[-5:]
+
                 start_llm = time.time()
                 response = llm_client.chat.completions.create(model=LLM_MODEL_ID, messages=history_capitalist, temperature=0.7)
                 text = response.choices[0].message.content.strip()
                 print(f"LLM generation done. Took {time.time() - start_llm:.2f} seconds")
-
-                print("Audio generation... " + str(time.time()))
                 buffer = generate_audio_buffer(text, SPEAKER_CAPITALIST)
-                print("Audio done... " + str(time.time()))
                 
                 history_capitalist.append({"role": "assistant", "content": text})
                 history_activist.append({"role": "user", "content": text})
